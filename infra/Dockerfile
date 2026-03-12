@@ -28,6 +28,7 @@ COPY ./CMakeLists.txt /build_space/CMakeLists.txt
 COPY ./install.sh /build_space/install.sh
 
 # Run build script
+# Updated: 2026-03-12 - Force rebuild with AVX2
 ARG BUILD_ARCH=x86_64
 ARG DEBUG=false
 ENV DEBUG=${DEBUG}

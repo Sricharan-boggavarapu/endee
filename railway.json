@@ -3,7 +3,11 @@
   "build": {
     "builder": "dockerfile",
     "dockerfilePath": "./infra/Dockerfile",
-    "context": "."
+    "context": ".",
+    "buildArgs": {
+      "BUILD_ARCH": "x86_64",
+      "DEBUG": "false"
+    }
   },
   "deploy": {
     "restartPolicyType": "always",
