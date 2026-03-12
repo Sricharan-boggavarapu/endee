@@ -65,10 +65,36 @@ st.markdown("Upload a PDF document and ask questions about it. Powered by **Ende
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Check if Endee is available
-if not ENDEE_AVAILABLE:
-    st.error("⚠️ Endee Vector Database is not available. Please ensure the Endee server is running on your local machine (localhost:8080).")
-    st.info("This app requires a local Endee server to function. For local development, run the Endee server first.")
+# Check if Endee is available - but allow app to load even if not connected yet
+endee_status_checked = False
+endee_connected = False
+
+def check_endee_connection():
+    """Check if Endee is actually connected (lazy check)"""
+    global endee_status_checked, endee_connected
+    if endee_status_checked:
+        return endee_connected
+    
+    endee_status_checked = True
+    if not ENDEE_AVAILABLE:
+        return False
+    
+    try:
+        vdb = rag_engine.get_vdb()
+        endee_connected = (vdb is not None)
+        return endee_connected
+    except:
+        endee_connected = False
+        return False
+
+# Show status at the top
+if ENDEE_AVAILABLE:
+    if check_endee_connection():
+        st.success("✅ Connected to Endee Vector Database")
+    else:
+        st.warning("⚠️ Endee Vector Database is not connected. Ensure the Endee server is running on localhost:8080")
+else:
+    st.error("⚠️ Endee package not found. Please install: pip install endee==0.1.6")
     st.stop()
 
 # Sidebar for controls

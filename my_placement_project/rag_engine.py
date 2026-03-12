@@ -22,50 +22,94 @@ def load_embedding_model():
 
 embedding_model = load_embedding_model()
 
-# Initialize Endee client only if available
-if ENDEE_AVAILABLE:
+# Lazy initialization of Endee client (don't block on import)
+_client = None
+_client_init_attempted = False
+
+@st.cache_resource
+def get_endee_client():
+    """Lazily initialize Endee client on first use"""
+    global _client, _client_init_attempted, ENDEE_AVAILABLE
+    
+    if _client_init_attempted:
+        return _client
+        
+    _client_init_attempted = True
+    
+    if not ENDEE_AVAILABLE:
+        return None
+        
     try:
-        # Use environment variable for server URL, default to localhost
-        endee_server_url = os.getenv("ENDEE_SERVER_URL", "http://localhost:8080")
-        client = endee.Endee(url=endee_server_url)
+        _client = endee.Endee()
+        return _client
     except Exception as e:
         ENDEE_AVAILABLE = False
-        client = None
-else:
-    client = None
+        return None
+
+def get_client():
+    """Get the Endee client, initializing if needed"""
+    return get_endee_client()
+
+# Don't initialize client at import time - do it lazily
+client = None
 
 INDEX_NAME = "endee_rag_index"
 DIMENSION = 384 # Dimension for all-MiniLM-L6-v2
 
+_endee_vdb = None
+_vdb_init_attempted = False
+
 def init_endee_db():
-    if not ENDEE_AVAILABLE or client is None:
+    """Lazily initialize Endee VDB on first use"""
+    global _endee_vdb, _vdb_init_attempted, ENDEE_AVAILABLE
+    
+    if _vdb_init_attempted:
+        return _endee_vdb
+        
+    _vdb_init_attempted = True
+    
+    c = get_client()
+    if not ENDEE_AVAILABLE or c is None:
         return None
         
-    indexes = client.list_indexes()
-    
-    # Check if index exists by parsing the output or simply trying to get it
-    index_exists = False
     try:
-        # `list_indexes` might return a list of dicts or strings
-        # let's try getting it directly
-        client.get_index(INDEX_NAME)
-        index_exists = True
-    except:
-        pass
+        indexes = c.list_indexes()
         
-    if not index_exists:
+        # Check if index exists
+        index_exists = False
         try:
-            client.create_index(INDEX_NAME, dimension=DIMENSION, space_type="cosine")
-            print(f"Index {INDEX_NAME} created.")
-        except Exception as e:
-            print("Index creation failed or already exists:", e)
+            _endee_vdb = c.get_index(INDEX_NAME)
+            index_exists = True
+        except:
+            pass
             
-    return client.get_index(INDEX_NAME)
+        if not index_exists:
+            try:
+                c.create_index(INDEX_NAME, dimension=DIMENSION, space_type="cosine")
+                _endee_vdb = c.get_index(INDEX_NAME)
+                print(f"Index {INDEX_NAME} created.")
+            except Exception as e:
+                print("Index creation failed or already exists:", e)
+                _endee_vdb = None
+                
+        return _endee_vdb
+    except Exception as e:
+        print(f"Error initializing VDB: {e}")
+        ENDEE_AVAILABLE = False
+        return None
 
-endee_vdb = init_endee_db()
+def get_vdb():
+    """Get the Endee VDB, initializing if needed"""
+    return init_endee_db()
+
+# Removed early initialization - will be lazy
 
 def process_and_upsert_pdf(uploaded_file):
     start_time = time.time()
+    vdb = get_vdb()
+    if vdb is None:
+        return 0, 0
+        
     reader = PdfReader(uploaded_file)
     text = ""
     for page in reader.pages:
@@ -98,19 +142,23 @@ def process_and_upsert_pdf(uploaded_file):
     # Upsert to Endee Vector Database
     # Process in batches of 100 just in case to respect MAX_VECTORS_PER_BATCH if defined softly
     for i in range(0, len(input_array), 100):
-        endee_vdb.upsert(input_array[i:i+100])
+        vdb.upsert(input_array[i:i+100])
         
     end_time = time.time()
     return len(chunks), round(end_time - start_time, 2)
 
 def query_endee(query_text, top_k=3):
     start_time = time.time()
+    vdb = get_vdb()
+    if vdb is None:
+        return [], 0
+        
     # 1. Embed query
     query_vector = embedding_model.encode(query_text).tolist()
     
     # 2. Search in Endee VDB
     # `query()` returns a list of dictionaries as seen in `ndd_api.py`
-    results = endee_vdb.query(vector=query_vector, top_k=top_k)
+    results = vdb.query(vector=query_vector, top_k=top_k)
     
     end_time = time.time()
     search_time = round((end_time - start_time) * 1000, 2) # in ms
