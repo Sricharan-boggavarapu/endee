@@ -25,7 +25,9 @@ embedding_model = load_embedding_model()
 # Initialize Endee client only if available
 if ENDEE_AVAILABLE:
     try:
-        client = endee.Endee()  # Assumes http://localhost:8080 by default
+        # Use environment variable for server URL, default to localhost
+        endee_server_url = os.getenv("ENDEE_SERVER_URL", "http://localhost:8080")
+        client = endee.Endee(url=endee_server_url)
     except Exception as e:
         ENDEE_AVAILABLE = False
         client = None
