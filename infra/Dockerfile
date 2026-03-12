@@ -76,7 +76,8 @@ USER endee
 WORKDIR /home/endee
 
 # App env
-ENV NDD_DATA_DIR=/mnt/data \
+ENV DATA_DIR=/mnt/data \
+    NDD_DATA_DIR=/mnt/data \
     NDD_SERVER_PORT=8080 \
     NDD_LOG_LEVEL=info \
     NDD_NUM_THREADS=0
