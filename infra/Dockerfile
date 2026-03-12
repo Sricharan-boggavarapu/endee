@@ -71,6 +71,15 @@ RUN chmod +x /usr/local/bin/ndd-server
 # Copy frontend
 COPY --from=builder /build_space/frontend /usr/local/frontend
 
+# Create entrypoint script to ensure directories exist at runtime
+RUN echo '#!/bin/bash' > /usr/local/bin/entrypoint.sh && \
+    echo 'set -e' >> /usr/local/bin/entrypoint.sh && \
+    echo 'mkdir -p /data /mnt/data' >> /usr/local/bin/entrypoint.sh && \
+    echo 'chmod 755 /data /mnt/data' >> /usr/local/bin/entrypoint.sh && \
+    echo 'chown -R endee:endee /data /mnt/data' >> /usr/local/bin/entrypoint.sh && \
+    echo 'exec su -s /bin/bash -c "exec /usr/local/bin/ndd-server" endee' >> /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh
+
 # Switch to non-root user
 USER endee
 WORKDIR /home/endee
@@ -83,6 +92,9 @@ ENV DATA_DIR=/data \
     NDD_NUM_THREADS=0
 
 EXPOSE 8080
+
+# Entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
