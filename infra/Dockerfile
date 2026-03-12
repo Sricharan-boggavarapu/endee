@@ -28,8 +28,7 @@ COPY ./CMakeLists.txt /build_space/CMakeLists.txt
 COPY ./install.sh /build_space/install.sh
 
 # Run build script
-ARG BUILD_ARCH
-ENV BUILD_ARCH=${BUILD_ARCH}
+ARG BUILD_ARCH=x86_64
 ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 RUN chmod +x ./install.sh && \
