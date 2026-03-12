@@ -60,9 +60,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user
 RUN groupadd -r -g 1000 endee && \
     useradd -r -u 1000 -g endee -s /bin/false -d /home/endee endee && \
-    mkdir -p /mnt/data /home/endee && \
-    chown -R endee:endee /mnt/data /home/endee && \
-    chmod 755 /mnt/data
+    mkdir -p /mnt/data /data /home/endee && \
+    chown -R endee:endee /mnt/data /data /home/endee && \
+    chmod 755 /mnt/data /data
 
 # Copy binary from builder
 COPY --from=builder /build_space/ndd-* /usr/local/bin/ndd-server
@@ -76,8 +76,8 @@ USER endee
 WORKDIR /home/endee
 
 # App env
-ENV DATA_DIR=/mnt/data \
-    NDD_DATA_DIR=/mnt/data \
+ENV DATA_DIR=/data \
+    NDD_DATA_DIR=/data \
     NDD_SERVER_PORT=8080 \
     NDD_LOG_LEVEL=info \
     NDD_NUM_THREADS=0
