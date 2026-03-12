@@ -1,6 +1,17 @@
 import streamlit as st
-import rag_engine
 import time
+import sys
+import os
+
+# Add current directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    import rag_engine
+    ENDEE_AVAILABLE = True
+except ImportError as e:
+    ENDEE_AVAILABLE = False
+    rag_engine = None
 
 st.set_page_config(page_title="EndeeRAG - Intelligent Assistant", page_icon="🤖", layout="wide")
 
@@ -53,6 +64,12 @@ st.markdown("Upload a PDF document and ask questions about it. Powered by **Ende
 # Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+# Check if Endee is available
+if not ENDEE_AVAILABLE:
+    st.error("⚠️ Endee Vector Database is not available. Please ensure the Endee server is running on your local machine (localhost:8080).")
+    st.info("This app requires a local Endee server to function. For local development, run the Endee server first.")
+    st.stop()
 
 # Sidebar for controls
 with st.sidebar:
