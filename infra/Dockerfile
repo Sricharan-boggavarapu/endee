@@ -33,9 +33,9 @@ ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 RUN chmod +x ./install.sh && \
     if [ "$DEBUG" = "true" ]; then \
-        ./install.sh --debug_all --skip-deps; \
+        ./install.sh --avx2 --debug_all --skip-deps; \
     else \
-        ./install.sh --release --skip-deps; \
+        ./install.sh --avx2 --release --skip-deps; \
     fi && \
     cp ./build/ndd-* ./ndd-server
 
