@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #14b8a6;
+  --brand-dim: rgba(20, 184, 166, 0.15);
+  --surface-900: #0a0f1a;
+  --surface-800: #0f172a;
+  --surface-700: #1e293b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-900);
+  color: #e2e8f0;
+  font-family: "DM Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Selection */
+::selection { background: rgba(20, 184, 166, 0.3); color: #e2e8f0; }
+
+/* Grid background */
+.bg-grid {
+  background-image: linear-gradient(rgba(20,184,166,0.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(20,184,166,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glow ring */
+.glow-border {
+  box-shadow: 0 0 0 1px rgba(20,184,166,0.3), 0 0 20px rgba(20,184,166,0.1);
+}
+
+/* Score bar */
+.score-bar {
+  background: linear-gradient(90deg, #14b8a6, #6366f1);
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* Shimmer loading */
+.shimmer {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Typing cursor */
+.typing::after {
+  content: "|";
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Glass card */
+.glass {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.glass-hover:hover {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(20, 184, 166, 0.3);
+  transition: all 0.2s ease;
+}
