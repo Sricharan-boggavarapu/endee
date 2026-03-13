@@ -1,7 +1,13 @@
 import axios from "axios";
 
+// In production: VITE_BACKEND_URL = https://endee-1-3blp.onrender.com
+// In development: falls back to relative /api (proxied by vite to localhost:3001)
+const BASE = import.meta.env.VITE_BACKEND_URL 
+  ? `${import.meta.env.VITE_BACKEND_URL}/api`
+  : "/api";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: BASE,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -11,17 +17,15 @@ export const searchDocs = (collection, query, topK = 5) =>
 export const askQuestion = (collection, question, topK = 5) =>
   api.post("/search/ask", { collection, question, topK }).then((r) => r.data);
 
-// For text content
 export const ingestDoc = (collection, title, content) =>
   api.post("/ingest", { collection, title, content }).then((r) => r.data);
 
-// For file uploads (PDF, txt, md) — sends as FormData
 export const ingestFile = (collection, title, file) => {
   const formData = new FormData();
   formData.append("collection", collection);
   formData.append("title", title);
   formData.append("file", file);
-  return axios.post("/api/ingest", formData, {
+  return axios.post(`${BASE}/ingest`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   }).then((r) => r.data);
 };
