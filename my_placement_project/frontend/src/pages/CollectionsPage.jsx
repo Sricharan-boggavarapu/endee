@@ -84,7 +84,7 @@ export default function CollectionsPage({ setActiveCollection }) {
     try {
       const data = await getCollections();
       const cols = Array.isArray(data) ? data : data?.collections || [];
-      setCollections(cols);
+      setCollections(cols.filter(c => { const n = typeof c === "string" ? c : c.name || c.id || ""; return !n.startsWith("pdf-"); }));
     } catch {
       toast.error("Failed to load collections");
     } finally {
