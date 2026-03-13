@@ -1,7 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, FileText, Send, Bot, User, Loader2, X, CheckCircle } from "lucide-react";
+import { Upload, FileText, Send, Bot, User, Loader2, X } from "lucide-react";
 import { ingestFile, askQuestion, deleteCollection } from "../utils/api.js";
 import toast from "react-hot-toast";
+
+// Generate a unique session ID per browser tab - stored in sessionStorage
+// sessionStorage is cleared automatically when tab is closed
+const getSessionId = () => {
+  let id = sessionStorage.getItem("pdf_session_id");
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    sessionStorage.setItem("pdf_session_id", id);
+  }
+  return id;
+};
 
 function Message({ msg }) {
   const isUser = msg.role === "user";
@@ -51,45 +62,34 @@ export default function ChatWithPDF() {
   const [dragging, setDragging] = useState(false);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
-  const collectionRef = useRef(null); // ref so cleanup can access latest value
+  const collectionRef = useRef(null);
+  const SESSION_ID = useRef(getSessionId()).current;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-delete collection when user leaves the page or closes browser
   useEffect(() => {
     collectionRef.current = collection;
   }, [collection]);
 
+  // Cleanup on unmount (navigate away) or tab close
   useEffect(() => {
     const cleanup = () => {
       if (collectionRef.current) {
-        // Use sendBeacon for reliable cleanup even on tab close
-        const data = JSON.stringify({ id: collectionRef.current });
-        navigator.sendBeacon
-          ? navigator.sendBeacon(
-              `${import.meta.env.VITE_BACKEND_URL || ""}/api/collections/delete-beacon`,
-              new Blob([data], { type: "application/json" })
-            )
-          : deleteCollection(collectionRef.current).catch(() => {});
+        deleteCollection(collectionRef.current).catch(() => {});
       }
     };
-
     window.addEventListener("beforeunload", cleanup);
     return () => {
       window.removeEventListener("beforeunload", cleanup);
-      // Also cleanup when navigating away within the app
-      if (collectionRef.current) {
-        deleteCollection(collectionRef.current).catch(() => {});
-      }
+      cleanup();
     };
   }, []);
 
   const handleFile = async (f) => {
     if (!f) return;
-    const allowed = ["application/pdf", "text/plain", "text/markdown"];
-    if (!allowed.includes(f.type) && !f.name.match(/\.(pdf|txt|md)$/i)) {
+    if (!f.type.match(/pdf|text/) && !f.name.match(/\.(pdf|txt|md)$/i)) {
       toast.error("Only PDF, TXT, or MD files supported");
       return;
     }
@@ -103,7 +103,9 @@ export default function ChatWithPDF() {
     setIngesting(true);
     setMessages([]);
 
-    const collectionName = "pdf-" + f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 40) + "-" + Date.now();
+    // Collection name includes SESSION_ID — unique per browser tab!
+    const safeName = f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 30);
+    const collectionName = `pdf-${SESSION_ID}-${safeName}`;
 
     try {
       await ingestFile(collectionName, f.name, f);
@@ -130,6 +132,8 @@ export default function ChatWithPDF() {
     setFile(null);
     setCollection(null);
     setMessages([]);
+    // Reset session ID for fresh start
+    sessionStorage.removeItem("pdf_session_id");
   };
 
   const handleSend = async () => {
@@ -165,9 +169,8 @@ export default function ChatWithPDF() {
           <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
           <p className="text-base mb-2" style={{ color: "#64748b" }}>Upload any .txt, .md or .pdf file — then ask questions about it using AI.</p>
           <p className="text-xs mb-8 px-3 py-2 rounded-lg" style={{ color: "#14b8a6", background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.15)" }}>
-            🔒 Your document is automatically deleted when you close this session.
+            🔒 Your document is private to your session and deleted when you leave.
           </p>
-
           <div
             className="rounded-2xl p-12 text-center cursor-pointer transition-all"
             style={{
@@ -198,16 +201,13 @@ export default function ChatWithPDF() {
             <span className="text-xs uppercase tracking-widest" style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>Chat with Document</span>
           </div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
-          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name} · <span style={{ color: "#14b8a6" }}>🔒 Auto-deleted on close</span></p>
+          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name} · <span style={{ color: "#14b8a6" }}>🔒 Private session</span></p>
         </div>
-        <div className="flex items-center gap-3">
-          {ingesting && <span className="flex items-center gap-2 text-sm" style={{ color: "#14b8a6" }}><Loader2 size={14} className="animate-spin" /> Processing...</span>}
-          <button onClick={handleClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-            <X size={14} />
-          </button>
-        </div>
+        <button onClick={handleClose}
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          <X size={14} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 space-y-5">
