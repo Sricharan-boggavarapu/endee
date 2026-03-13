@@ -38,3 +38,15 @@ app.listen(PORT, () => {
   console.log(`  POST /api/search`);
   console.log(`  POST /api/search/ask`);
 });
+
+const KEEP_BACKEND = process.env.RENDER_EXTERNAL_URL || "http://localhost:3001";
+const KEEP_ENDEE = process.env.ENDEE_BASE_URL || "http://localhost:8080";
+setInterval(async () => {
+  try {
+    await fetch(KEEP_BACKEND + "/health");
+    await fetch(KEEP_ENDEE + "/api/v1/index/list");
+    console.log("Ping keep-alive sent");
+  } catch (err) {
+    console.log("Keep-alive ping failed:", err.message);
+  }
+}, 10 * 60 * 1000);
