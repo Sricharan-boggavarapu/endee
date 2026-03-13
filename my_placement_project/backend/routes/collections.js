@@ -33,5 +33,19 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Add this route to backend/routes/collections.js
+// It handles the sendBeacon delete (beacon sends raw JSON body)
+router.post("/delete-beacon", async (req, res) => {
+  try {
+    let body = req.body;
+    if (typeof body === "string") body = JSON.parse(body);
+    const { id } = body;
+    if (id) await endeeClient.deleteCollection(id);
+    res.sendStatus(200);
+  } catch (err) {
+    res.sendStatus(200); // always 200 for beacon
+  }
+});
+
 
 module.exports = router;
