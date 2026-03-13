@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, FileText, Send, Bot, User, Loader2, X, CheckCircle } from "lucide-react";
-import { ingestFile, askQuestion } from "../utils/api.js";
+import { ingestFile, askQuestion, deleteCollection } from "../utils/api.js";
 import toast from "react-hot-toast";
 
 function Message({ msg }) {
@@ -51,10 +51,40 @@ export default function ChatWithPDF() {
   const [dragging, setDragging] = useState(false);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
+  const collectionRef = useRef(null); // ref so cleanup can access latest value
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-delete collection when user leaves the page or closes browser
+  useEffect(() => {
+    collectionRef.current = collection;
+  }, [collection]);
+
+  useEffect(() => {
+    const cleanup = () => {
+      if (collectionRef.current) {
+        // Use sendBeacon for reliable cleanup even on tab close
+        const data = JSON.stringify({ id: collectionRef.current });
+        navigator.sendBeacon
+          ? navigator.sendBeacon(
+              `${import.meta.env.VITE_BACKEND_URL || ""}/api/collections/delete-beacon`,
+              new Blob([data], { type: "application/json" })
+            )
+          : deleteCollection(collectionRef.current).catch(() => {});
+      }
+    };
+
+    window.addEventListener("beforeunload", cleanup);
+    return () => {
+      window.removeEventListener("beforeunload", cleanup);
+      // Also cleanup when navigating away within the app
+      if (collectionRef.current) {
+        deleteCollection(collectionRef.current).catch(() => {});
+      }
+    };
+  }, []);
 
   const handleFile = async (f) => {
     if (!f) return;
@@ -63,20 +93,25 @@ export default function ChatWithPDF() {
       toast.error("Only PDF, TXT, or MD files supported");
       return;
     }
+
+    // Delete previous collection if exists
+    if (collectionRef.current) {
+      await deleteCollection(collectionRef.current).catch(() => {});
+    }
+
     setFile(f);
     setIngesting(true);
     setMessages([]);
 
-    const collectionName = "pdf-" + f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 40);
-    
+    const collectionName = "pdf-" + f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 40) + "-" + Date.now();
+
     try {
-      // Use ingestFile which sends FormData so backend can extract PDF text
       await ingestFile(collectionName, f.name, f);
       setCollection(collectionName);
       setMessages([{
         id: Date.now(),
         role: "assistant",
-        content: `I've read "${f.name}" and I'm ready to answer your questions about it! What would you like to know?`,
+        content: `I've read "${f.name}" and I'm ready to answer your questions! What would you like to know?`,
       }]);
       toast.success("Document ready!");
     } catch (err) {
@@ -85,6 +120,16 @@ export default function ChatWithPDF() {
     } finally {
       setIngesting(false);
     }
+  };
+
+  const handleClose = async () => {
+    if (collection) {
+      await deleteCollection(collection).catch(() => {});
+      toast.success("Session ended & data deleted 🗑️");
+    }
+    setFile(null);
+    setCollection(null);
+    setMessages([]);
   };
 
   const handleSend = async () => {
@@ -118,7 +163,10 @@ export default function ChatWithPDF() {
             <span className="text-xs uppercase tracking-widest" style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>Chat with Document</span>
           </div>
           <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
-          <p className="text-base mb-8" style={{ color: "#64748b" }}>Upload any .txt, .md or .pdf file — then ask questions about it using AI.</p>
+          <p className="text-base mb-2" style={{ color: "#64748b" }}>Upload any .txt, .md or .pdf file — then ask questions about it using AI.</p>
+          <p className="text-xs mb-8 px-3 py-2 rounded-lg" style={{ color: "#14b8a6", background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.15)" }}>
+            🔒 Your document is automatically deleted when you close this session.
+          </p>
 
           <div
             className="rounded-2xl p-12 text-center cursor-pointer transition-all"
@@ -150,12 +198,11 @@ export default function ChatWithPDF() {
             <span className="text-xs uppercase tracking-widest" style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>Chat with Document</span>
           </div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
-          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name}</p>
+          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name} · <span style={{ color: "#14b8a6" }}>🔒 Auto-deleted on close</span></p>
         </div>
         <div className="flex items-center gap-3">
           {ingesting && <span className="flex items-center gap-2 text-sm" style={{ color: "#14b8a6" }}><Loader2 size={14} className="animate-spin" /> Processing...</span>}
-          <span className="text-xs px-2 py-1 rounded-md font-mono" style={{ background: "#0f172a", color: "#475569" }}>{collection}</span>
-          <button onClick={() => { setFile(null); setCollection(null); setMessages([]); }}
+          <button onClick={handleClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
             <X size={14} />
