@@ -4,30 +4,31 @@ const { embedText } = require("../services/embeddings");
 const { searchVectors } = require("../services/endeeClient");
 const { ragAnswer } = require("../services/rag");
 
-/**
- * POST /api/search
- * Body: { collection, query, topK }
- */
+function sanitizeCollection(name) {
+  return (name || "default").replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
+}
+
 router.post("/", async (req, res) => {
   try {
-    const { collection, query, topK = 5 } = req.body;
+    const collection = sanitizeCollection(req.body.collection);
+    const { query, topK = 5 } = req.body;
+    console.log(`\n🔍 SEARCH: collection="${collection}", query="${query}"`);
 
     if (!collection || !query) {
       return res.status(400).json({ error: "collection and query are required" });
     }
 
-    // Embed the query
     const queryVector = await embedText(query);
+    console.log(`   Query embedded, dim=${queryVector.length}`);
 
-    // Search Endee
     const searchResult = await searchVectors(collection, queryVector, topK);
-    const matches = searchResult.matches || searchResult.results || [];
+    console.log(`   Search result: ${JSON.stringify(searchResult).slice(0, 200)}`);
 
-    // Format results
+    const matches = searchResult.matches || [];
     const results = matches.map((m, i) => ({
       rank: i + 1,
       id: m.id,
-      score: parseFloat((m.score || m.similarity || 0).toFixed(4)),
+      score: parseFloat((m.score || 0).toFixed(4)),
       title: m.metadata?.title || "Untitled",
       excerpt: (m.metadata?.content || m.metadata?.text || "").slice(0, 300),
       docId: m.metadata?.docId,
@@ -35,25 +36,19 @@ router.post("/", async (req, res) => {
       ingestedAt: m.metadata?.ingestedAt,
     }));
 
-    res.json({
-      query,
-      collection,
-      totalResults: results.length,
-      results,
-    });
+    console.log(`   ✅ Found ${results.length} results`);
+    res.json({ query, collection, totalResults: results.length, results });
   } catch (err) {
-    console.error("Search error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error(`❌ SEARCH ERROR:`, err.message);
+    res.status(500).json({ error: err.message, details: err.response?.data });
   }
 });
 
-/**
- * POST /api/search/ask — RAG Q&A
- * Body: { collection, question, topK }
- */
 router.post("/ask", async (req, res) => {
   try {
-    const { collection, question, topK = 5 } = req.body;
+    const collection = sanitizeCollection(req.body.collection);
+    const { question, topK = 5 } = req.body;
+    console.log(`\n🤖 ASK: collection="${collection}", question="${question}"`);
 
     if (!collection || !question) {
       return res.status(400).json({ error: "collection and question are required" });
@@ -62,8 +57,10 @@ router.post("/ask", async (req, res) => {
     const result = await ragAnswer(collection, question, topK);
     res.json({ question, collection, ...result });
   } catch (err) {
-    console.error("RAG error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error(`❌ ASK ERROR:`, err.message);
+    console.error(`   Status:`, err.response?.status);
+    console.error(`   Response:`, JSON.stringify(err.response?.data));
+    res.status(500).json({ error: err.message, details: err.response?.data });
   }
 });
 
