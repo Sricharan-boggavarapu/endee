@@ -31,7 +31,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<SearchPage activeCollection={activeCollection} />} />
           <Route path="/ask" element={<AskPage activeCollection={activeCollection} />} />
-          <Route path="/chat-pdf" element={<ChatWithPDF />} />
+          <Route path="/chat-pdf" element={
+            <ChatWithPDF
+              activeCollection={activeCollection}
+              setActiveCollection={setActiveCollection}
+            />}
+          />
           <Route path="/ingest" element={<IngestPage activeCollection={activeCollection} />} />
           <Route path="/collections" element={<CollectionsPage setActiveCollection={setActiveCollection} />} />
         </Routes>

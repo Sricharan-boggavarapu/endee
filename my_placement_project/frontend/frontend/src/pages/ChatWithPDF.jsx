@@ -1,7 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, FileText, Send, Bot, User, Loader2, X, CheckCircle } from "lucide-react";
-import { ingestFile, askQuestion } from "../utils/api.js";
+import { Upload, FileText, Send, Bot, User, Loader2, X } from "lucide-react";
+import { ingestFile, askQuestion, deleteCollection } from "../utils/api.js";
 import toast from "react-hot-toast";
+
+const getSessionId = () => {
+  let id = sessionStorage.getItem("pdf_session_id");
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    sessionStorage.setItem("pdf_session_id", id);
+  }
+  return id;
+};
 
 function Message({ msg }) {
   const isUser = msg.role === "user";
@@ -41,7 +50,7 @@ function Message({ msg }) {
   );
 }
 
-export default function ChatWithPDF() {
+export default function ChatWithPDF({ setActiveCollection }) {
   const [file, setFile] = useState(null);
   const [collection, setCollection] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -51,40 +60,79 @@ export default function ChatWithPDF() {
   const [dragging, setDragging] = useState(false);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
+  const collectionRef = useRef(null);
+  const SESSION_ID = useRef(getSessionId()).current;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    collectionRef.current = collection;
+  }, [collection]);
+
+  useEffect(() => {
+    const cleanup = () => {
+      if (collectionRef.current) {
+        deleteCollection(collectionRef.current).catch(() => {});
+      }
+    };
+    window.addEventListener("beforeunload", cleanup);
+    return () => {
+      window.removeEventListener("beforeunload", cleanup);
+      cleanup();
+    };
+  }, []);
+
   const handleFile = async (f) => {
     if (!f) return;
-    const allowed = ["application/pdf", "text/plain", "text/markdown"];
-    if (!allowed.includes(f.type) && !f.name.match(/\.(pdf|txt|md)$/i)) {
+    if (!f.type.match(/pdf|text/) && !f.name.match(/\.(pdf|txt|md)$/i)) {
       toast.error("Only PDF, TXT, or MD files supported");
       return;
     }
+
+    if (collectionRef.current) {
+      await deleteCollection(collectionRef.current).catch(() => {});
+    }
+
     setFile(f);
     setIngesting(true);
     setMessages([]);
 
-    const collectionName = "pdf-" + f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 40);
-    
+    const safeName = f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 30);
+    const collectionName = `pdf-${SESSION_ID}-${safeName}`;
+
     try {
-      // Use ingestFile which sends FormData so backend can extract PDF text
       await ingestFile(collectionName, f.name, f);
       setCollection(collectionName);
+
+      // 🔑 Switch active collection globally so Search & Ask AI use this PDF!
+      if (setActiveCollection) setActiveCollection(collectionName);
+
       setMessages([{
         id: Date.now(),
         role: "assistant",
-        content: `I've read "${f.name}" and I'm ready to answer your questions about it! What would you like to know?`,
+        content: `I've read "${f.name}" and I'm ready! You can also search and ask AI questions about it using the sidebar navigation — the active collection has been switched automatically. What would you like to know?`,
       }]);
-      toast.success("Document ready!");
+      toast.success("Document ready! Active collection switched 🎯");
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to process file");
       setFile(null);
     } finally {
       setIngesting(false);
     }
+  };
+
+  const handleClose = async () => {
+    if (collection) {
+      await deleteCollection(collection).catch(() => {});
+      if (setActiveCollection) setActiveCollection("default");
+      toast.success("Session ended & data deleted 🗑️");
+    }
+    setFile(null);
+    setCollection(null);
+    setMessages([]);
+    sessionStorage.removeItem("pdf_session_id");
   };
 
   const handleSend = async () => {
@@ -118,8 +166,10 @@ export default function ChatWithPDF() {
             <span className="text-xs uppercase tracking-widest" style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>Chat with Document</span>
           </div>
           <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
-          <p className="text-base mb-8" style={{ color: "#64748b" }}>Upload any .txt, .md or .pdf file — then ask questions about it using AI.</p>
-
+          <p className="text-base mb-2" style={{ color: "#64748b" }}>Upload any .txt, .md or .pdf file — then ask questions about it using AI.</p>
+          <p className="text-xs mb-8 px-3 py-2 rounded-lg" style={{ color: "#14b8a6", background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.15)" }}>
+            🔒 Private session · 🎯 Auto-switches active collection for Search & Ask AI
+          </p>
           <div
             className="rounded-2xl p-12 text-center cursor-pointer transition-all"
             style={{
@@ -150,17 +200,13 @@ export default function ChatWithPDF() {
             <span className="text-xs uppercase tracking-widest" style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>Chat with Document</span>
           </div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
-          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name}</p>
+          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name} · <span style={{ color: "#14b8a6" }}>🔒 Private · 🎯 Active collection</span></p>
         </div>
-        <div className="flex items-center gap-3">
-          {ingesting && <span className="flex items-center gap-2 text-sm" style={{ color: "#14b8a6" }}><Loader2 size={14} className="animate-spin" /> Processing...</span>}
-          <span className="text-xs px-2 py-1 rounded-md font-mono" style={{ background: "#0f172a", color: "#475569" }}>{collection}</span>
-          <button onClick={() => { setFile(null); setCollection(null); setMessages([]); }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-            <X size={14} />
-          </button>
-        </div>
+        <button onClick={handleClose}
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          <X size={14} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 space-y-5">
