@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Search, Loader2, AlertCircle, FileText, TrendingUp } from "lucide-react";
 import { searchDocs } from "../utils/api.js";
 import toast from "react-hot-toast";
-import NoticeBanner from "../components/NoticeBanner.jsx";
 
 function ScoreBar({ score }) {
   const pct = Math.round(score * 100);
@@ -135,7 +134,6 @@ export default function SearchPage({ activeCollection }) {
         <p className="text-base" style={{ color: "#64748b" }}>
           Search across your documents using natural language — not just keywords.
         </p>
-        <NoticeBanner />
       </div>
 
       {/* Search form */}
@@ -250,4 +248,6 @@ export default function SearchPage({ activeCollection }) {
     </div>
   );
 }
+
+
 

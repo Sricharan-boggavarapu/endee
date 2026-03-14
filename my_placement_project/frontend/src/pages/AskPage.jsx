@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, BookOpen } from "lucide-react";
 import { askQuestion } from "../utils/api.js";
-import NoticeBanner from "../components/NoticeBanner.jsx";
 import toast from "react-hot-toast";
 
 function SourceChip({ source }) {
@@ -134,7 +133,6 @@ export default function AskPage({ activeCollection }) {
           <span style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>{activeCollection}</span>{" "}
           and generates an answer with citations.
         </p>
-        <NoticeBanner />
       </div>
 
       {/* Messages */}
@@ -212,3 +210,4 @@ export default function AskPage({ activeCollection }) {
     </div>
   );
 }
+
