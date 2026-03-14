@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, BookOpen, ExternalLink } from "lucide-react";
+import { Send, Bot, User, Loader2, BookOpen } from "lucide-react";
 import { askQuestion } from "../utils/api.js";
+import NoticeBanner from "../components/NoticeBanner.jsx";
 import toast from "react-hot-toast";
 
 function SourceChip({ source }) {
@@ -57,7 +58,6 @@ function Message({ msg }) {
             <p style={{ whiteSpace: "pre-wrap" }}>{msg.content}</p>
           )}
         </div>
-
         {msg.sources?.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {msg.sources.map((s, i) => <SourceChip key={i} source={s} />)}
@@ -134,6 +134,7 @@ export default function AskPage({ activeCollection }) {
           <span style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>{activeCollection}</span>{" "}
           and generates an answer with citations.
         </p>
+        <NoticeBanner />
       </div>
 
       {/* Messages */}
@@ -168,7 +169,6 @@ export default function AskPage({ activeCollection }) {
             </div>
           </div>
         )}
-
         {messages.map((msg) => <Message key={msg.id} msg={msg} />)}
         <div ref={bottomRef} />
       </div>
