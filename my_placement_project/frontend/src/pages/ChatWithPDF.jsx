@@ -40,7 +40,7 @@ function Message({ msg }) {
             {msg.sources.map((s, i) => (
               <span key={i} className="text-xs px-2 py-0.5 rounded-full"
                 style={{ background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)", color: "#14b8a6" }}>
-                [{s.rank}] {s.title?.slice(0, 30)} · {Math.round(s.score * 100)}%
+                [{s.rank}] {s.title?.slice(0, 20)} · {Math.round(s.score * 100)}%
               </span>
             ))}
           </div>
@@ -99,7 +99,7 @@ export default function ChatWithPDF({ setActiveCollection }) {
     setIngesting(true);
     setMessages([]);
 
-    const safeName = f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 30);
+    const safeName = f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 20);
     const collectionName = `pdf-${SESSION_ID}-${safeName}`;
 
     try {
