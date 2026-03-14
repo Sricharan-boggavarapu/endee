@@ -3,8 +3,6 @@ import { Upload, FileText, Send, Bot, User, Loader2, X } from "lucide-react";
 import { ingestFile, askQuestion, deleteCollection } from "../utils/api.js";
 import toast from "react-hot-toast";
 
-// Generate a unique session ID per browser tab - stored in sessionStorage
-// sessionStorage is cleared automatically when tab is closed
 const getSessionId = () => {
   let id = sessionStorage.getItem("pdf_session_id");
   if (!id) {
@@ -52,7 +50,7 @@ function Message({ msg }) {
   );
 }
 
-export default function ChatWithPDF() {
+export default function ChatWithPDF({ setActiveCollection }) {
   const [file, setFile] = useState(null);
   const [collection, setCollection] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -73,7 +71,6 @@ export default function ChatWithPDF() {
     collectionRef.current = collection;
   }, [collection]);
 
-  // Cleanup on unmount (navigate away) or tab close
   useEffect(() => {
     const cleanup = () => {
       if (collectionRef.current) {
@@ -94,7 +91,6 @@ export default function ChatWithPDF() {
       return;
     }
 
-    // Delete previous collection if exists
     if (collectionRef.current) {
       await deleteCollection(collectionRef.current).catch(() => {});
     }
@@ -103,19 +99,22 @@ export default function ChatWithPDF() {
     setIngesting(true);
     setMessages([]);
 
-    // Collection name includes SESSION_ID — unique per browser tab!
     const safeName = f.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 30);
     const collectionName = `pdf-${SESSION_ID}-${safeName}`;
 
     try {
       await ingestFile(collectionName, f.name, f);
       setCollection(collectionName);
+
+      // 🔑 Switch active collection globally so Search & Ask AI use this PDF!
+      if (setActiveCollection) setActiveCollection(collectionName);
+
       setMessages([{
         id: Date.now(),
         role: "assistant",
-        content: `I've read "${f.name}" and I'm ready to answer your questions! What would you like to know?`,
+        content: `I've read "${f.name}" and I'm ready! You can also search and ask AI questions about it using the sidebar navigation — the active collection has been switched automatically. What would you like to know?`,
       }]);
-      toast.success("Document ready!");
+      toast.success("Document ready! Active collection switched 🎯");
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to process file");
       setFile(null);
@@ -127,12 +126,12 @@ export default function ChatWithPDF() {
   const handleClose = async () => {
     if (collection) {
       await deleteCollection(collection).catch(() => {});
+      if (setActiveCollection) setActiveCollection("default");
       toast.success("Session ended & data deleted 🗑️");
     }
     setFile(null);
     setCollection(null);
     setMessages([]);
-    // Reset session ID for fresh start
     sessionStorage.removeItem("pdf_session_id");
   };
 
@@ -169,7 +168,7 @@ export default function ChatWithPDF() {
           <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
           <p className="text-base mb-2" style={{ color: "#64748b" }}>Upload any .txt, .md or .pdf file — then ask questions about it using AI.</p>
           <p className="text-xs mb-8 px-3 py-2 rounded-lg" style={{ color: "#14b8a6", background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.15)" }}>
-            🔒 Your document is private to your session and deleted when you leave.
+            🔒 Private session · 🎯 Auto-switches active collection for Search & Ask AI
           </p>
           <div
             className="rounded-2xl p-12 text-center cursor-pointer transition-all"
@@ -201,7 +200,7 @@ export default function ChatWithPDF() {
             <span className="text-xs uppercase tracking-widest" style={{ color: "#14b8a6", fontFamily: "JetBrains Mono, monospace" }}>Chat with Document</span>
           </div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "Syne, sans-serif", color: "#f1f5f9" }}>Chat with PDF</h1>
-          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name} · <span style={{ color: "#14b8a6" }}>🔒 Private session</span></p>
+          <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>{file.name} · <span style={{ color: "#14b8a6" }}>🔒 Private · 🎯 Active collection</span></p>
         </div>
         <button onClick={handleClose}
           className="w-8 h-8 rounded-lg flex items-center justify-center"
